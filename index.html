@@ -63,17 +63,21 @@
               <i class="fa-solid fa-id-card"></i>
             </div>
             <input 
-              type="text" 
-              id="studentId" 
+              type="text"
+              inputmode="numeric"
+              maxlength="9"
+              pattern="[0-9]{9}"
+              autocomplete="off"
+              id="studentId"
               name="studentId"
-              placeholder="e.g. ST-894021"
+              placeholder="9-digit ID, e.g. 202412345"
               required
               class="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 text-sm font-mono tracking-wide placeholder-slate-400 transition"
-              oninput="checkDuplicateId()"
+              oninput="this.value = this.value.replace(/\D/g, '').slice(0, 9); checkDuplicateId()"
             />
           </div>
           <p id="studentIdError" class="text-xs text-rose-500 mt-1 hidden flex items-center gap-1">
-            <i class="fa-solid fa-circle-exclamation"></i> <span>Please enter a valid Student ID.</span>
+            <i class="fa-solid fa-circle-exclamation"></i> <span>Student ID must be exactly 9 digits.</span>
           </p>
         </div>
       </div>
@@ -146,20 +150,24 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
-        <button 
-          type="button" 
-          onclick="closeReviewModal()" 
-          class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200/60 rounded-xl transition">
-          Edit Selections
-        </button>
-        <button 
-          type="button" 
-          onclick="submitForm()" 
-          class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm flex items-center gap-2">
-          <span>Confirm & Submit</span>
-          <i class="fa-solid fa-check"></i>
-        </button>
+      <div class="p-4 sm:p-6 bg-slate-50 border-t border-slate-100">
+        <p id="submitError" class="hidden mb-3 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2"></p>
+        <div class="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onclick="closeReviewModal()"
+            class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200/60 rounded-xl transition">
+            Edit Selections
+          </button>
+          <button
+            type="button"
+            id="submitBtn"
+            onclick="submitForm()"
+            class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+            <span id="submitBtnText">Confirm & Submit</span>
+            <i class="fa-solid fa-check"></i>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -213,8 +221,12 @@
       { id: 'slot_5', label: 'Tuesday 8th of December', badge: 'Dec 8' }
     ];
 
-    // LocalStorage Keys
+    // Paste your Google Apps Script Web App URL here (see apps-script/Code.gs and README.md)
+    const SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbyPpVy1geg6AcZbLo8gMmwgNU64x7DJWs0BOEhAR2VFln2KRlaB1g1E12bBZhQNlDFL/exec';
+
+    // LocalStorage key (only used as a same-device hint; the Sheet is the source of truth)
     const STORAGE_KEY = 'submitted_student_schedules';
+    const ID_PATTERN = /^\d{9}$/;
 
     // UI Initializer
     window.addEventListener('DOMContentLoaded', () => {
@@ -282,7 +294,7 @@
       const studentId = document.getElementById('studentId').value.trim();
       const errorEl = document.getElementById('studentIdError');
       
-      if (!studentId) {
+      if (!ID_PATTERN.test(studentId)) {
         errorEl.classList.remove('hidden');
         document.getElementById('studentId').focus();
         return false;
@@ -334,6 +346,7 @@
         `;
       });
 
+      document.getElementById('submitError').classList.add('hidden');
       document.getElementById('reviewModal').classList.remove('hidden');
     }
 
@@ -342,9 +355,14 @@
     }
 
     // Process Final Submission
-    function submitForm() {
+    async function submitForm() {
       const studentId = document.getElementById('studentId').value.trim();
       const selections = {};
+      const errorEl = document.getElementById('submitError');
+      const btn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('submitBtnText');
+
+      if (!ID_PATTERN.test(studentId)) return;
 
       ACTIVITIES.forEach(act => {
         const selectedSlotId = document.querySelector(`input[name="activity_${act.id}"]:checked`).value;
@@ -352,14 +370,46 @@
         selections[act.title] = slot.label;
       });
 
-      // Save to localStorage
-      const existingData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      existingData[studentId.toLowerCase()] = {
-        studentId: studentId,
-        timestamp: new Date().toISOString(),
-        selections: selections
+      const showError = (msg) => {
+        errorEl.textContent = msg;
+        errorEl.classList.remove('hidden');
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(existingData));
+
+      if (SUBMIT_URL.startsWith('PASTE_')) {
+        showError('Submission is not configured yet (missing SUBMIT_URL).');
+        return;
+      }
+
+      errorEl.classList.add('hidden');
+      btn.disabled = true;
+      btnText.textContent = 'Submitting…';
+
+      try {
+        // text/plain avoids a CORS preflight, which Apps Script doesn't support
+        const res = await fetch(SUBMIT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ studentId, selections })
+        });
+        const result = await res.json();
+        if (!result.ok) {
+          showError(result.error || 'Submission failed. Please try again.');
+          return;
+        }
+      } catch (err) {
+        showError('Could not reach the server. Check your connection and try again.');
+        return;
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Confirm & Submit';
+      }
+
+      // Same-device hint for the duplicate warning
+      try {
+        const existingData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        existingData[studentId] = { studentId, timestamp: new Date().toISOString(), selections };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existingData));
+      } catch (e) { /* storage unavailable; ignore */ }
 
       // Show confirmation view
       closeReviewModal();
