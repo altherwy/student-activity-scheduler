@@ -7,6 +7,10 @@
  * Resubmitting with the same ID overwrites that student's row.
  */
 
+// Set to true to accept submissions, false to close the survey.
+// After changing, redeploy: Deploy -> Manage deployments -> Edit -> New version.
+const ACCEPTING_RESPONSES = false;
+
 const ACTIVITY_COLUMNS = [
   'Design Quiz',
   'Implementation Quiz',
@@ -16,6 +20,9 @@ const ACTIVITY_COLUMNS = [
 ];
 
 function doPost(e) {
+  if (!ACCEPTING_RESPONSES) {
+    return json_({ ok: false, error: 'This survey is now closed and no longer accepting responses.' });
+  }
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
