@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Activity Scheduling Form</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 pb-12">
+
+  <!-- Header Banner -->
+  <header class="bg-indigo-600 text-white shadow-lg">
+    <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-500/50 p-3 rounded-xl backdrop-blur-sm">
+          <i class="fa-solid me-1 fa-calendar-check text-2xl sm:text-3xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Course Activity Scheduler</h1>
+          <p class="text-indigo-100 text-sm sm:text-base mt-1">Map required quizzes, exercises, and exams to your preferred time slots.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+    
+    <!-- Submission Status Banner (Hidden by default) -->
+    <div id="alreadySubmittedAlert" class="hidden mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl shadow-sm text-amber-800">
+      <div class="flex items-start">
+        <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl mr-3 mt-0.5"></i>
+        <div>
+          <h3 class="font-semibold text-amber-900">Existing Submission Found</h3>
+          <p class="text-sm mt-0.5" id="alreadySubmittedText">A submission has already been recorded for this Student ID on this device.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Scheduling Form -->
+    <form id="scheduleForm" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" onsubmit="return false;">
+      
+      <!-- Section 1: Student Information -->
+      <div class="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/50">
+        <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-sm flex items-center justify-center font-bold">1</span>
+          Student Details
+        </h2>
+        
+        <div class="mt-4 max-w-md">
+          <label for="studentId" class="block text-sm font-medium text-slate-700 mb-1">
+            Student ID Number <span class="text-rose-500">*</span>
+          </label>
+          <div class="relative rounded-lg shadow-sm">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <i class="fa-solid fa-id-card"></i>
+            </div>
+            <input 
+              type="text" 
+              id="studentId" 
+              name="studentId"
+              placeholder="e.g. ST-894021"
+              required
+              class="block w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 text-sm font-mono tracking-wide placeholder-slate-400 transition"
+              oninput="checkDuplicateId()"
+            />
+          </div>
+          <p id="studentIdError" class="text-xs text-rose-500 mt-1 hidden flex items-center gap-1">
+            <i class="fa-solid fa-circle-exclamation"></i> <span>Please enter a valid Student ID.</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Section 2: Activity Mapping -->
+      <div class="p-6 sm:p-8 space-y-8">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-sm flex items-center justify-center font-bold">2</span>
+            Select Time Slots for Activities
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">Assign each required activity to one available date slot. Multiple activities can share the same date slot.</p>
+        </div>
+
+        <div id="activitiesContainer" class="space-y-6">
+          <!-- Activity Cards Dynamic Generation -->
+        </div>
+      </div>
+
+      <!-- Form Footer / Actions -->
+      <div class="px-6 py-4 sm:px-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <div class="text-xs text-slate-500 flex items-center gap-1">
+          <i class="fa-solid fa-circle-info text-indigo-500"></i>
+          <span>All 5 activities must be scheduled.</span>
+        </div>
+        
+        <button 
+          type="button" 
+          onclick="openReviewModal()" 
+          class="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-medium text-sm rounded-xl hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-100 transition shadow-sm active:scale-[0.98]">
+          <span>Review Schedule</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Review Modal -->
+  <div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 transition-opacity">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden transform transition-all">
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-5 sm:p-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">
+            <i class="fa-solid fa-clipboard-check text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg">Confirm Schedule</h3>
+            <p class="text-xs text-slate-400">Review your choices before submitting</p>
+          </div>
+        </div>
+        <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Student ID</span>
+          <p id="modalStudentId" class="text-base font-mono font-bold text-slate-800 mt-0.5"></p>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Slot Allocation Summary</h4>
+          <div id="modalSummaryList" class="space-y-3">
+            <!-- Dynamic summary items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+        <button 
+          type="button" 
+          onclick="closeReviewModal()" 
+          class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200/60 rounded-xl transition">
+          Edit Selections
+        </button>
+        <button 
+          type="button" 
+          onclick="submitForm()" 
+          class="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-sm flex items-center gap-2">
+          <span>Confirm & Submit</span>
+          <i class="fa-solid fa-check"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Confirmation View -->
+  <div id="successCard" class="hidden max-w-2xl mx-auto px-4 mt-12 text-center">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 space-y-6">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold text-slate-900">Schedule Submitted!</h2>
+        <p class="text-slate-500 text-sm mt-1">Your activity preferences have been recorded successfully.</p>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left font-mono text-sm space-y-2 max-w-md mx-auto">
+        <div class="flex justify-between border-b border-slate-200 pb-2">
+          <span class="text-slate-500 font-sans text-xs uppercase font-bold">Student ID</span>
+          <span id="confirmId" class="font-bold text-indigo-600"></span>
+        </div>
+        <div id="confirmSummary" class="space-y-1.5 pt-1">
+          <!-- Summary items -->
+        </div>
+      </div>
+
+      <div class="pt-4">
+        <button 
+          onclick="resetFormView()" 
+          class="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition">
+          Submit Another Entry
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration Data
+    const ACTIVITIES = [
+      { id: 'design_quiz', title: 'Design Quiz', icon: 'fa-pen-ruler', description: 'Assessing system structure and UML design fundamentals.' },
+      { id: 'impl_quiz', title: 'Implementation Quiz', icon: 'fa-code', description: 'Testing coding logic, patterns, and language concepts.' },
+      { id: 'maint_quiz', title: 'Maintenance Quiz', icon: 'fa-wrench', description: 'Evaluates refactoring, debugging, and software lifecycle.' },
+      { id: 'lab_exercise', title: 'Lab Exercise', icon: 'fa-flask', description: 'Hands-on practical assignment execution.' },
+      { id: 'lab_exam', title: 'Lab Exam', icon: 'fa-laptop-code', description: 'Comprehensive timed laboratory evaluation.' }
+    ];
+
+    const TIME_SLOTS = [
+      { id: 'slot_1', label: 'Monday 9th of November', badge: 'Nov 9' },
+      { id: 'slot_2', label: 'Tuesday 17th of November', badge: 'Nov 17' },
+      { id: 'slot_3', label: 'Tuesday 1st of December', badge: 'Dec 1' },
+      { id: 'slot_4', label: 'Monday 7th of December', badge: 'Dec 7' },
+      { id: 'slot_5', label: 'Tuesday 8th of December', badge: 'Dec 8' }
+    ];
+
+    // LocalStorage Keys
+    const STORAGE_KEY = 'submitted_student_schedules';
+
+    // UI Initializer
+    window.addEventListener('DOMContentLoaded', () => {
+      renderActivities();
+    });
+
+    // Render Activity Selection Cards
+    function renderActivities() {
+      const container = document.getElementById('activitiesContainer');
+      container.innerHTML = ACTIVITIES.map((act, index) => `
+        <div class="border border-slate-200 rounded-xl p-5 hover:border-indigo-300 transition-colors bg-white">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg text-lg">
+              <i class="fa-solid ${act.icon}"></i>
+            </div>
+            <div>
+              <h3 class="font-semibold text-slate-900">${act.title}</h3>
+              <p class="text-xs text-slate-500 mt-0.5">${act.description}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+            ${TIME_SLOTS.map(slot => `
+              <label class="relative flex items-center p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 focus-within:ring-2 focus-within:ring-indigo-500 transition">
+                <input 
+                  type="radio" 
+                  name="activity_${act.id}" 
+                  value="${slot.id}"
+                  class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                  required
+                />
+                <span class="ml-2.5 text-xs font-medium text-slate-700">${slot.label}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Check Duplicate ID in LocalStorage
+    function checkDuplicateId() {
+      const idInput = document.getElementById('studentId');
+      const studentId = idInput.value.trim();
+      const alertBox = document.getElementById('alreadySubmittedAlert');
+      
+      if (!studentId) {
+        alertBox.classList.add('hidden');
+        return false;
+      }
+
+      const existingData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (existingData[studentId.toLowerCase()]) {
+        alertBox.classList.remove('hidden');
+        document.getElementById('alreadySubmittedText').innerText = 
+          `Student ID "${studentId}" has already registered a schedule on this device. Submitting again will update the record.`;
+        return true;
+      } else {
+        alertBox.classList.add('hidden');
+        return false;
+      }
+    }
+
+    // Form Validation
+    function validateForm() {
+      const studentId = document.getElementById('studentId').value.trim();
+      const errorEl = document.getElementById('studentIdError');
+      
+      if (!studentId) {
+        errorEl.classList.remove('hidden');
+        document.getElementById('studentId').focus();
+        return false;
+      }
+      errorEl.classList.add('hidden');
+
+      // Ensure all activities have a selected slot
+      for (const act of ACTIVITIES) {
+        const selected = document.querySelector(`input[name="activity_${act.id}"]:checked`);
+        if (!selected) {
+          // Highlight missing item
+          const element = document.querySelector(`input[name="activity_${act.id}"]`);
+          if (element) {
+            element.closest('.border').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.closest('.border').classList.add('border-rose-400', 'bg-rose-50/20');
+            setTimeout(() => {
+              element.closest('.border').classList.remove('border-rose-400', 'bg-rose-50/20');
+            }, 2500);
+          }
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Open Modal Summary
+    function openReviewModal() {
+      if (!validateForm()) return;
+
+      const studentId = document.getElementById('studentId').value.trim();
+      document.getElementById('modalStudentId').innerText = studentId;
+
+      const summaryList = document.getElementById('modalSummaryList');
+      summaryList.innerHTML = '';
+
+      ACTIVITIES.forEach(act => {
+        const selectedSlotId = document.querySelector(`input[name="activity_${act.id}"]:checked`).value;
+        const slot = TIME_SLOTS.find(s => s.id === selectedSlotId);
+
+        summaryList.innerHTML += `
+          <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+            <span class="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <i class="fa-solid ${act.icon} text-indigo-500"></i> ${act.title}
+            </span>
+            <span class="text-xs font-medium bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-100">
+              ${slot.label}
+            </span>
+          </div>
+        `;
+      });
+
+      document.getElementById('reviewModal').classList.remove('hidden');
+    }
+
+    function closeReviewModal() {
+      document.getElementById('reviewModal').classList.add('hidden');
+    }
+
+    // Process Final Submission
+    function submitForm() {
+      const studentId = document.getElementById('studentId').value.trim();
+      const selections = {};
+
+      ACTIVITIES.forEach(act => {
+        const selectedSlotId = document.querySelector(`input[name="activity_${act.id}"]:checked`).value;
+        const slot = TIME_SLOTS.find(s => s.id === selectedSlotId);
+        selections[act.title] = slot.label;
+      });
+
+      // Save to localStorage
+      const existingData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      existingData[studentId.toLowerCase()] = {
+        studentId: studentId,
+        timestamp: new Date().toISOString(),
+        selections: selections
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existingData));
+
+      // Show confirmation view
+      closeReviewModal();
+      document.getElementById('scheduleForm').classList.add('hidden');
+      
+      document.getElementById('confirmId').innerText = studentId;
+      const confirmSummary = document.getElementById('confirmSummary');
+      confirmSummary.innerHTML = Object.entries(selections).map(([act, date]) => `
+        <div class="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0">
+          <span class="text-slate-600">${act}</span>
+          <span class="font-semibold text-slate-800">${date}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('successCard').classList.remove('hidden');
+    }
+
+    function resetFormView() {
+      document.getElementById('scheduleForm').reset();
+      document.getElementById('successCard').classList.add('hidden');
+      document.getElementById('scheduleForm').classList.remove('hidden');
+      document.getElementById('alreadySubmittedAlert').classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
